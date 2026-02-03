@@ -820,6 +820,16 @@ def dbcheck():
         "musicbrainz_json TEXT)"
     )
 
+    # thetvdb_episodes table :: This table caches episode data from TheTVDB for missing episode checks
+    c_db.execute(
+        "CREATE TABLE IF NOT EXISTS thetvdb_episodes (id INTEGER PRIMARY KEY AUTOINCREMENT, "
+        "thetvdb_id INTEGER, season_number INTEGER, episode_number INTEGER, "
+        "episode_name TEXT, air_date TEXT, last_updated INTEGER)"
+    )
+    c_db.execute(
+        "CREATE INDEX IF NOT EXISTS idx_thetvdb_episodes_thetvdb_id ON thetvdb_episodes(thetvdb_id)"
+    )
+
     # image_hash_lookup table :: This table keeps record of the image hash lookups
     c_db.execute(
         "CREATE TABLE IF NOT EXISTS image_hash_lookup (id INTEGER PRIMARY KEY AUTOINCREMENT, "

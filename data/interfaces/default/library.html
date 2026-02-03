@@ -101,6 +101,9 @@ DOCUMENTATION :: END
                                     % if _session['user_group'] == 'admin':
                                     <li><a id="nav-tabs-export" href="#tabs-export" role="tab" data-toggle="tab">Export</a></li>
                                     % endif
+                                    % if data['section_type'] == 'show' and _session['user_group'] == 'admin' and config['thetvdb_apikey']:
+                                    <li><a id="nav-tabs-missing" href="#tabs-missing" role="tab" data-toggle="tab">Missing Episodes</a></li>
+                                    % endif
                                     % endif
                                 </ul>
                             </div>
@@ -472,6 +475,47 @@ DOCUMENTATION :: END
                         </div>
                     </div>
                     % endif
+                    % if data['section_type'] == 'show' and _session['user_group'] == 'admin' and config['thetvdb_apikey']:
+                    <div role="tabpanel" class="tab-pane" id="tabs-missing">
+                        <div class="container-fluid">
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class='table-card-header'>
+                                        <div class="header-bar">
+                                            <span>
+                                                <i class="fa fa-exclamation-circle"></i> Missing Episodes for <strong>
+                                                    <span class="set-username">${data['section_name']}</span>
+                                                </strong>
+                                            </span>
+                                        </div>
+                                        <div class="button-bar">
+                                            <div class="btn-group colvis-button-bar" id="button-bar-missing"></div>
+                                        </div>
+                                    </div>
+                                    <div class="table-card-back">
+                                        <div id="missing-episodes-loading" class="muted" style="padding: 20px;">
+                                            <i class="fa fa-refresh fa-spin"></i> Loading shows...
+                                        </div>
+                                        <table class="display missing_episodes_table" id="missing_episodes_table-SID-${data['section_id']}" width="100%" style="display: none;">
+                                            <thead>
+                                                <tr>
+                                                    <th align="left" id="thumb"></th>
+                                                    <th align="left" id="title">Show</th>
+                                                    <th align="left" id="year">Year</th>
+                                                    <th align="left" id="episode_count">Plex Episodes</th>
+                                                    <th align="left" id="thetvdb_id">TVDB ID</th>
+                                                    <th align="left" id="status">Status</th>
+                                                    <th align="left" id="actions">Actions</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody></tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    % endif
                 </div>
             </div>
         </div>
@@ -560,6 +604,9 @@ DOCUMENTATION :: END
 <script src="${http_root}js/tables/collections_table.js${cache_param}"></script>
 <script src="${http_root}js/tables/playlists_table.js${cache_param}"></script>
 <script src="${http_root}js/tables/export_table.js${cache_param}"></script>
+% if data['section_type'] == 'show' and config['thetvdb_apikey']:
+<script src="${http_root}js/tables/missing_episodes_table.js${cache_param}"></script>
+% endif
 <script>
     $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
         $.fn.dataTable.tables({ visible: true, api: true }).columns.adjust();
@@ -823,6 +870,44 @@ DOCUMENTATION :: END
     $("#refresh-export-table").click(function () {
         export_table.draw();
     });
+
+    % if data['section_type'] == 'show' and config['thetvdb_apikey']:
+    function loadMissingEpisodesTable() {
+        $.ajax({
+            url: 'get_library_missing_episodes',
+            type: 'GET',
+            data: { section_id: section_id },
+            dataType: 'json',
+            success: function(response) {
+                $('#missing-episodes-loading').hide();
+                $('#missing_episodes_table-SID-${data["section_id"]}').show();
+
+                if (response.result === 'success') {
+                    missing_episodes_table_options.data = response.data;
+                    missing_episodes_table = $('#missing_episodes_table-SID-${data["section_id"]}').DataTable(missing_episodes_table_options);
+
+                    var colvis = new $.fn.dataTable.ColVis(missing_episodes_table, { buttonText: '<i class="fa fa-columns"></i> Select columns', buttonClass: 'btn btn-dark' });
+                    $(colvis.button()).appendTo('#button-bar-missing');
+
+                    clearSearchButton('missing_episodes_table-SID-${data["section_id"]}', missing_episodes_table);
+                } else {
+                    $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="7" class="text-center text-danger">' + (response.message || 'Failed to load shows') + '</td></tr>');
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#missing-episodes-loading').hide();
+                $('#missing_episodes_table-SID-${data["section_id"]}').show();
+                $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="7" class="text-center text-danger">Error loading shows</td></tr>');
+            }
+        });
+    }
+
+    $('#nav-tabs-missing').on('shown.bs.tab', function() {
+        if (typeof(missing_episodes_table) === 'undefined') {
+            loadMissingEpisodesTable();
+        }
+    });
+    % endif
 
     $("#edit-library-tooltip").tooltip();
 

@@ -583,7 +583,8 @@ class WebInterface(object):
 
         config = {
             "get_file_sizes": plexpy.CONFIG.GET_FILE_SIZES,
-            "get_file_sizes_hold": plexpy.CONFIG.GET_FILE_SIZES_HOLD
+            "get_file_sizes_hold": plexpy.CONFIG.GET_FILE_SIZES_HOLD,
+            "thetvdb_apikey": bool(plexpy.CONFIG.THETVDB_APIKEY)
         }
 
         if section_id:
@@ -1076,6 +1077,99 @@ class WebInterface(object):
                 return result
         else:
             logger.warn("Library user stats requested but no section_id received.")
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    @requireAuth(member_of("admin"))
+    @addtoapi()
+    def get_library_missing_episodes(self, section_id=None, **kwargs):
+        """ Get list of shows in a TV library with their TVDB status for missing episode checks.
+
+            ```
+            Required parameters:
+                section_id (str):       The id of the Plex library section (must be a TV show library)
+
+            Optional parameters:
+                None
+
+            Returns:
+                json:
+                    {"result": "success",
+                     "data": [
+                        {"rating_key": "1234",
+                         "title": "Breaking Bad",
+                         "year": "2008",
+                         "thumb": "/library/metadata/1234/thumb",
+                         "episode_count": 62,
+                         "thetvdb_id": "81189"
+                        },
+                        {...}
+                     ]
+                    }
+            ```
+        """
+        if not section_id:
+            return {'result': 'error', 'message': 'No section_id provided.'}
+
+        library_data = libraries.Libraries()
+        result = library_data.get_shows_for_missing_episodes(section_id=section_id)
+
+        if result is not None:
+            return {'result': 'success', 'data': result}
+        else:
+            return {'result': 'error', 'message': 'Failed to get shows for missing episodes.'}
+
+    @cherrypy.expose
+    @cherrypy.tools.json_out()
+    @requireAuth(member_of("admin"))
+    @addtoapi()
+    def get_show_missing_episodes(self, rating_key=None, refresh=False, **kwargs):
+        """ Get missing episodes for a specific TV show by comparing against TheTVDB.
+
+            ```
+            Required parameters:
+                rating_key (str):       The rating key of the TV show
+
+            Optional parameters:
+                refresh (bool):         Force refresh from TheTVDB API (default: false)
+
+            Returns:
+                json:
+                    {"result": "success",
+                     "data": {
+                        "show_info": {
+                            "rating_key": "1234",
+                            "title": "Breaking Bad",
+                            "year": "2008",
+                            "thetvdb_id": "81189"
+                        },
+                        "missing_episodes": [
+                            {"season_number": 2,
+                             "episode_number": 5,
+                             "episode_name": "Breakage",
+                             "air_date": "2009-04-05"
+                            },
+                            {...}
+                        ],
+                        "total_tvdb_episodes": 62,
+                        "plex_episode_count": 60,
+                        "error": null
+                     }
+                    }
+            ```
+        """
+        if not rating_key:
+            return {'result': 'error', 'message': 'No rating_key provided.'}
+
+        refresh = helpers.bool_true(refresh)
+
+        library_data = libraries.Libraries()
+        result = library_data.get_missing_episodes_for_show(rating_key=rating_key, refresh=refresh)
+
+        if result.get('error'):
+            return {'result': 'error', 'message': result['error'], 'data': result}
+        else:
+            return {'result': 'success', 'data': result}
 
     @cherrypy.expose
     @cherrypy.tools.json_out()

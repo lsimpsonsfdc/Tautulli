@@ -1420,6 +1420,20 @@
                             <p class="help-block">Enable to lookup links to MusicBrainz for music when available.</p>
                         </div>
                         <div class="form-group">
+                            <label for="thetvdb_apikey">TheTVDB API Key</label>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="input-group">
+                                        <span class="input-group-btn">
+                                            <button class="btn btn-form reveal-token" type="button"><i class="fa fa-eye-slash"></i></button>
+                                        </span>
+                                        <input type="password" class="form-control" id="thetvdb_apikey" name="thetvdb_apikey" value="${config['thetvdb_apikey']}" data-parsley-trigger="change">
+                                    </div>
+                                </div>
+                            </div>
+                            <p class="help-block">Enter your TheTVDB API key.</p>
+                        </div>
+                        <div class="form-group">
                             <label for="delete_lookup_info">Delete Lookup Info</label>
                             <p class="help-block">Delete all cached metadata lookup info in Tautulli.</p>
                             <div class="row">

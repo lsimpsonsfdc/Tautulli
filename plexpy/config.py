@@ -187,6 +187,7 @@ _CONFIG_DEFINITIONS = {
     'SYNCHRONOUS_MODE': (str, 'Advanced', 'NORMAL'),
     'THEMOVIEDB_APIKEY': (str, 'General', 'e9a6655bae34bf694a0f3e33338dc28e'),
     'THEMOVIEDB_LOOKUP': (int, 'General', 0),
+    'THETVDB_APIKEY': (str, 'General', ''),
     'TVMAZE_LOOKUP': (int, 'General', 0),
     'TV_WATCHED_PERCENT': (int, 'Monitoring', 85),
     'UPDATE_DB_INTERVAL': (int, 'General', 24),
@@ -293,6 +294,7 @@ SETTINGS = [
     'REFRESH_LIBRARIES_INTERVAL',
     'REFRESH_USERS_INTERVAL',
     'SHOW_ADVANCED_SETTINGS',
+    'THETVDB_APIKEY',
     'TIME_FORMAT',
     'TV_WATCHED_PERCENT',
     'WATCHED_MARKER'

@@ -1190,3 +1190,222 @@ class Libraries(object):
             return 'Deleted duplicate libraries from the database.'
         except Exception as e:
             logger.warn("Tautulli Libraries :: Unable to delete duplicate libraries: %s." % e)
+
+    def get_shows_for_missing_episodes(self, section_id):
+        """
+        Get all TV shows in a library with their TVDB IDs and episode counts.
+
+        This method is used by the Missing Episodes feature to populate the
+        initial table of shows that can be checked for missing episodes.
+
+        Args:
+            section_id: The Plex library section ID (must be a TV show library)
+
+        Returns:
+            List of dicts, each containing:
+                - rating_key (str): Plex rating key for the show
+                - title (str): Show title
+                - year (str): Year the show started
+                - thumb (str): URL to show thumbnail
+                - episode_count (int): Number of episodes in Plex
+                - thetvdb_id (str|None): TheTVDB series ID, or None if not found
+
+        Note:
+            Shows without a TVDB ID in their Plex metadata will have
+            thetvdb_id set to None and cannot be checked for missing episodes.
+        """
+        from plexpy import thetvdb
+
+        if not section_id:
+            return []
+
+        pms_connect = pmsconnect.PmsConnect()
+
+        # Get all shows in the library
+        library_children = pms_connect.get_library_children_details(
+            section_id=section_id,
+            section_type='show'
+        )
+
+        if not library_children or not library_children.get('children_list'):
+            return []
+
+        shows = []
+        for show in library_children['children_list']:
+            rating_key = show.get('rating_key')
+            if not rating_key:
+                continue
+
+            # Get detailed metadata to extract TVDB ID from guids
+            metadata = pms_connect.get_metadata_details(rating_key=rating_key)
+            if not metadata:
+                continue
+
+            thetvdb_id = None
+            guids = metadata.get('guids', [])
+            for guid in guids:
+                if 'tvdb://' in guid:
+                    try:
+                        thetvdb_id = guid.split('tvdb://')[1].split('/')[0].split('?')[0]
+                        break
+                    except (IndexError, ValueError):
+                        pass
+
+            shows.append({
+                'rating_key': rating_key,
+                'title': metadata.get('title', ''),
+                'year': metadata.get('year', ''),
+                'thumb': metadata.get('thumb', ''),
+                'episode_count': metadata.get('children_count', 0),
+                'thetvdb_id': thetvdb_id
+            })
+
+        return shows
+
+    def get_missing_episodes_for_show(self, rating_key, refresh=False):
+        """
+        Compare a TV show's episodes in Plex against TheTVDB and return missing episodes.
+
+        This method fetches all episodes for a show from TheTVDB, compares them
+        against what exists in the Plex library, and returns a list of episodes
+        that are missing from Plex but have already aired.
+
+        Args:
+            rating_key (str): The Plex rating key for the TV show
+            refresh (bool): If True, force refresh from TheTVDB API instead of
+                           using cached data. Default is False.
+
+        Returns:
+            dict: Contains the following keys:
+                - show_info (dict): Basic show information
+                    - rating_key (str): Plex rating key
+                    - title (str): Show title
+                    - year (str): Year started
+                    - thumb (str): Thumbnail URL
+                    - thetvdb_id (str): TheTVDB series ID (if found)
+                - missing_episodes (list): List of missing episode dicts, each with:
+                    - season_number (int): Season number
+                    - episode_number (int): Episode number within season
+                    - episode_name (str): Episode title
+                    - air_date (str): Original air date (YYYY-MM-DD format)
+                - total_tvdb_episodes (int): Total aired episodes on TheTVDB
+                - plex_episode_count (int): Number of episodes in Plex
+                - error (str|None): Error message if something failed, else None
+
+        Note:
+            - Season 0 (specials) are excluded from the comparison
+            - Only episodes that have already aired are considered missing
+            - Requires THETVDB_APIKEY to be configured in settings
+        """
+        from plexpy import thetvdb
+        import time
+
+        result = {
+            'show_info': {},
+            'missing_episodes': [],
+            'total_tvdb_episodes': 0,
+            'plex_episode_count': 0,
+            'error': None
+        }
+
+        if not rating_key:
+            result['error'] = 'No rating key provided'
+            return result
+
+        # Check if TVDB API key is configured
+        if not plexpy.CONFIG.THETVDB_APIKEY:
+            result['error'] = 'TheTVDB API key not configured. Please add it in Settings > 3rd Party APIs.'
+            return result
+
+        pms_connect = pmsconnect.PmsConnect()
+
+        # Get show metadata
+        show_metadata = pms_connect.get_metadata_details(rating_key=rating_key)
+        if not show_metadata:
+            result['error'] = 'Could not get show metadata from Plex'
+            return result
+
+        result['show_info'] = {
+            'rating_key': rating_key,
+            'title': show_metadata.get('title', ''),
+            'year': show_metadata.get('year', ''),
+            'thumb': show_metadata.get('thumb', '')
+        }
+
+        # Extract TVDB ID from guids
+        thetvdb_id = None
+        guids = show_metadata.get('guids', [])
+        for guid in guids:
+            if 'tvdb://' in guid:
+                try:
+                    thetvdb_id = guid.split('tvdb://')[1].split('/')[0].split('?')[0]
+                    break
+                except (IndexError, ValueError):
+                    pass
+
+        if not thetvdb_id:
+            result['error'] = 'No TVDB ID found for this show'
+            return result
+
+        result['show_info']['thetvdb_id'] = thetvdb_id
+
+        # Get all episodes from TVDB
+        tvdb_episodes = thetvdb.get_series_episodes(thetvdb_id, refresh=refresh)
+        if tvdb_episodes is None:
+            result['error'] = 'Failed to fetch episodes from TheTVDB'
+            return result
+
+        # Filter to only aired episodes (air_date is in the past and not empty)
+        # Also exclude Season 0 (specials)
+        current_date = time.strftime('%Y-%m-%d')
+        aired_tvdb_episodes = []
+        for ep in tvdb_episodes:
+            air_date = ep.get('air_date', '')
+            season_num = ep.get('season_number', 0)
+            # Skip Season 0 (specials) and unaired episodes
+            if season_num > 0 and air_date and air_date <= current_date:
+                aired_tvdb_episodes.append(ep)
+
+        result['total_tvdb_episodes'] = len(aired_tvdb_episodes)
+
+        # Get all episodes from Plex for this show
+        plex_episodes = set()
+
+        # Get seasons
+        seasons_data = pms_connect.get_item_children(rating_key=rating_key)
+        if seasons_data and seasons_data.get('children_list'):
+            for season in seasons_data['children_list']:
+                season_key = season.get('rating_key')
+                if not season_key:
+                    continue
+
+                # Get episodes for this season
+                episodes_data = pms_connect.get_item_children(rating_key=season_key)
+                if episodes_data and episodes_data.get('children_list'):
+                    for episode in episodes_data['children_list']:
+                        season_num = helpers.cast_to_int(episode.get('parent_media_index', 0))
+                        episode_num = helpers.cast_to_int(episode.get('media_index', 0))
+                        if season_num is not None and episode_num is not None:
+                            plex_episodes.add((season_num, episode_num))
+
+        result['plex_episode_count'] = len(plex_episodes)
+
+        # Find missing episodes
+        missing = []
+        for ep in aired_tvdb_episodes:
+            season_num = ep.get('season_number', 0)
+            episode_num = ep.get('episode_number', 0)
+
+            if (season_num, episode_num) not in plex_episodes:
+                missing.append({
+                    'season_number': season_num,
+                    'episode_number': episode_num,
+                    'episode_name': ep.get('episode_name', ''),
+                    'air_date': ep.get('air_date', '')
+                })
+
+        # Sort by season and episode number
+        missing.sort(key=lambda x: (x['season_number'], x['episode_number']))
+        result['missing_episodes'] = missing
+
+        return result

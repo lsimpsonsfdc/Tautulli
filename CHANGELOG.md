@@ -1,5 +1,20 @@
 # Changelog
 
+## v2.16.1 (Unreleased)
+
+* Libraries:
+  * New: Added Missing Episodes feature for TV show libraries.
+    * Compares Plex library episodes against TheTVDB to identify missing aired episodes.
+    * New "Missing Episodes" tab on TV library pages (requires TheTVDB API key).
+    * Excludes Season 0 (specials) and unaired episodes from comparison.
+    * Episode data is cached for 24 hours to reduce API calls.
+* Settings:
+  * New: Added TheTVDB API key configuration in Settings > 3rd Party APIs.
+* API:
+  * New: Added `get_library_missing_episodes` API command to list shows with TVDB IDs.
+  * New: Added `get_show_missing_episodes` API command to get missing episodes for a specific show.
+
+
 ## v2.16.0 (2025-09-08)
 
 * Important Note!
