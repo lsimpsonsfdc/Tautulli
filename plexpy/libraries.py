@@ -1209,6 +1209,7 @@ class Libraries(object):
                 - thumb (str): URL to show thumbnail
                 - episode_count (int): Number of episodes in Plex
                 - thetvdb_id (str|None): TheTVDB series ID, or None if not found
+                - last_checked (int|None): Unix timestamp of last missing episode check, or None if never checked
 
         Note:
             Shows without a TVDB ID in their Plex metadata will have
@@ -1229,6 +1230,21 @@ class Libraries(object):
 
         if not library_children or not library_children.get('children_list'):
             return []
+
+        # Get last_checked timestamps from thetvdb_episodes cache
+        monitor_db = database.MonitorDatabase()
+        last_checked_map = {}
+        try:
+            query = """
+                SELECT thetvdb_id, MAX(last_updated) as last_checked
+                FROM thetvdb_episodes
+                GROUP BY thetvdb_id
+            """
+            results = monitor_db.select(query)
+            for row in results:
+                last_checked_map[str(row['thetvdb_id'])] = row['last_checked']
+        except Exception as e:
+            logger.warn("Tautulli Libraries :: Failed to get last_checked timestamps: %s" % e)
 
         shows = []
         for show in library_children['children_list']:
@@ -1257,7 +1273,8 @@ class Libraries(object):
                 'year': metadata.get('year', ''),
                 'thumb': metadata.get('thumb', ''),
                 'episode_count': metadata.get('children_count', 0),
-                'thetvdb_id': thetvdb_id
+                'thetvdb_id': thetvdb_id,
+                'last_checked': last_checked_map.get(thetvdb_id) if thetvdb_id else None
             })
 
         return shows

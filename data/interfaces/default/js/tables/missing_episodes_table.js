@@ -110,18 +110,33 @@ missing_episodes_table_options = {
         },
         {
             "targets": [5],
+            "data": "last_checked",
+            "createdCell": function (td, cellData, rowData, row, col) {
+                if (cellData !== null && cellData !== '') {
+                    var date = new Date(cellData * 1000);
+                    var formattedDate = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+                    $(td).html('<span data-toggle="tooltip" title="' + date.toLocaleString() + '">' + formattedDate + '</span>');
+                } else {
+                    $(td).html('<span class="text-muted">Never</span>');
+                }
+            },
+            "width": "10%",
+            "className": "no-wrap"
+        },
+        {
+            "targets": [6],
             "data": null,
             "createdCell": function (td, cellData, rowData, row, col) {
                 $(td).html('<span class="missing-status text-muted">Not checked</span>');
                 $(td).attr('data-rating-key', rowData['rating_key']);
             },
-            "width": "15%",
+            "width": "12%",
             "className": "no-wrap missing-status-cell",
             "orderable": false,
             "searchable": false
         },
         {
-            "targets": [6],
+            "targets": [7],
             "data": null,
             "createdCell": function (td, cellData, rowData, row, col) {
                 if (rowData['thetvdb_id']) {
@@ -149,6 +164,13 @@ missing_episodes_table_options = {
     }
 };
 
+// Helper function to format the last checked date
+function formatLastChecked(timestamp) {
+    var date = new Date(timestamp);
+    var formattedDate = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+    return '<span data-toggle="tooltip" title="' + date.toLocaleString() + '">' + formattedDate + '</span>';
+}
+
 // Handle check button clicks
 $('.missing_episodes_table').on('click', 'button.check-missing-btn', function (e) {
     e.preventDefault();
@@ -156,6 +178,7 @@ $('.missing_episodes_table').on('click', 'button.check-missing-btn', function (e
     var ratingKey = btn.data('rating-key');
     var row = btn.closest('tr');
     var statusCell = row.find('.missing-status-cell');
+    var lastCheckedCell = row.find('td').eq(5); // Last Checked column (0-indexed)
 
     // Disable button and show loading
     btn.prop('disabled', true);
@@ -171,6 +194,9 @@ $('.missing_episodes_table').on('click', 'button.check-missing-btn', function (e
             if (response.result === 'success') {
                 var data = response.data;
                 var missingCount = data.missing_episodes.length;
+
+                // Update Last Checked column with current time
+                lastCheckedCell.html(formatLastChecked(Date.now()));
 
                 if (missingCount === 0) {
                     statusCell.find('.missing-status').html('<span class="text-success"><i class="fa fa-check"></i> Complete</span>');

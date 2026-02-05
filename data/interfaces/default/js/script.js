@@ -472,7 +472,7 @@ window.onerror = function (message, file, line) {
     $.post("log_js_errors", e, function (data) { });
 };
 
-$('*').on('click', '.refresh_pms_image', function (e) {
+$(document).on('click', '.refresh_pms_image', function (e) {
     e.preventDefault();
     e.stopPropagation();
 

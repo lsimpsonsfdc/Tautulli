@@ -504,6 +504,7 @@ DOCUMENTATION :: END
                                                     <th align="left" id="year">Year</th>
                                                     <th align="left" id="episode_count">Plex Episodes</th>
                                                     <th align="left" id="thetvdb_id">TVDB ID</th>
+                                                    <th align="left" id="last_checked">Last Checked</th>
                                                     <th align="left" id="status">Status</th>
                                                     <th align="left" id="actions">Actions</th>
                                                 </tr>
@@ -891,13 +892,13 @@ DOCUMENTATION :: END
 
                     clearSearchButton('missing_episodes_table-SID-${data["section_id"]}', missing_episodes_table);
                 } else {
-                    $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="7" class="text-center text-danger">' + (response.message || 'Failed to load shows') + '</td></tr>');
+                    $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="8" class="text-center text-danger">' + (response.message || 'Failed to load shows') + '</td></tr>');
                 }
             },
             error: function(xhr, status, error) {
                 $('#missing-episodes-loading').hide();
                 $('#missing_episodes_table-SID-${data["section_id"]}').show();
-                $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="7" class="text-center text-danger">Error loading shows</td></tr>');
+                $('#missing_episodes_table-SID-${data["section_id"]} tbody').html('<tr><td colspan="8" class="text-center text-danger">Error loading shows</td></tr>');
             }
         });
     }
